@@ -1,3 +1,4 @@
+import Payment from '@/models/payment';
 import axios from 'axios';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
@@ -48,12 +49,15 @@ export async function POST(req) {
   try {
     const response = await axios.request(options);
     const redirectUrl = response.data.data.instrumentResponse.redirectInfo.url;
-    return new Response(JSON.stringify({ msg: "OK", url: redirectUrl }), {
+    const payment=new Payment({ name,number:mobileNumber, amount})
+    const savePayment=await payment.save()
+    return new Response(JSON.stringify({ msg: "OK", url: `${redirectUrl}&paymentId=payment._id`}), {
       status: 200,
       headers: {
         'Content-Type': 'application/json'
       }
     });
+
   } catch (error) {
     console.error("Error in payment initiation", error);
     return new Response(JSON.stringify({ error: 'Failed to initiate payment' }), {

@@ -1,3 +1,4 @@
+import Payment from '@/models/payment';
 import axios from 'axios';
 import crypto from 'crypto';
 
@@ -12,6 +13,7 @@ const failureUrl = process.env.CLIENT_FAIL_URL;
 export async function POST(req) {
   // Extract the transaction ID from query parameters
   const merchantTransactionId = req.nextUrl.searchParams.get('id');
+  const paymentId = req.nextUrl.searchParams.get('paymentId');
 
   if (!merchantTransactionId) {
     return new Response(JSON.stringify({ error: 'Transaction ID not provided' }), { status: 400 });
@@ -38,6 +40,9 @@ export async function POST(req) {
 
     // Check if the transaction was successful or failed
     if (response.data.success === true) {
+
+      const payment=await Payment.findByIdAndUpdate(paymentId,{$set:{paymentStatus:success}})
+
       return new Response(null, { status: 302, headers: { Location: successUrl } });
     } else {
       return new Response(null, { status: 302, headers: { Location: failureUrl } });
