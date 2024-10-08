@@ -1,6 +1,7 @@
 import Payment from '@/models/payment';
 import axios from 'axios';
 import crypto from 'crypto';
+import { connectToDB } from '@/lib/mongoDb'; // Import the MongoDB connection function
 
 // Environment variables
 const MERCHANT_KEY = process.env.MERCHANT_KEY;
@@ -11,10 +12,12 @@ const failureUrl = process.env.CLIENT_FAIL_URL;
 
 // Export the POST method
 export async function POST(req) {
-  // Extract the transaction ID from query parameters
-  const merchantTransactionId = req.nextUrl.searchParams.get('id');
-  const paymentId = req.nextUrl.searchParams.get('paymentId');
+  // Connect to MongoDB
+  await connectToDB();
 
+  // Extract the transaction ID and payment ID from query parameters
+  const merchantTransactionId = req.nextUrl.searchParams.get('id');
+  
   if (!merchantTransactionId) {
     return new Response(JSON.stringify({ error: 'Transaction ID not provided' }), { status: 400 });
   }
@@ -40,15 +43,32 @@ export async function POST(req) {
 
     // Check if the transaction was successful or failed
     if (response.data.success === true) {
+      // Update payment status to "success" in the database
+      const pt = await Payment.findOneAndUpdate(
+        { orderId: merchantTransactionId }, // Query to find the document
+        { $set: { status: 'success' } }, // Update operation
+        { new: true } // Option to return the updated document
+      );
+      console.log(pt);
 
-      const payment=await Payment.findByIdAndUpdate(paymentId,{$set:{paymentStatus:success}})
-
+      // Redirect to the success URL
       return new Response(null, { status: 302, headers: { Location: successUrl } });
     } else {
+      // Update payment status to "failed" in the database
+     const payment= await Payment.findByIdAndUpdate(paymentId, { $set: { status: 'failed' } });
+     console.log(payment);
+     
+
+      // Redirect to the failure URL
       return new Response(null, { status: 302, headers: { Location: failureUrl } });
     }
   } catch (error) {
     console.error("Error in status check:", error);
+
+    // Update payment status to "failed" in the database in case of error
+    await Payment.findByIdAndUpdate(paymentId, { $set: { paymentStatus: 'failed' } });
+
+    // Redirect to the failure URL
     return new Response(null, { status: 302, headers: { Location: failureUrl } });
   }
 }
